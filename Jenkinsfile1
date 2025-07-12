@@ -1,0 +1,49 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'SUBDOMAIN', defaultValue: 'reactjs-jenkins-pipeline', description: 'Subdomain fo bind')
+        string(name: 'PORT', defaultValue: '3000', description: 'Port your Docker app listens on')
+    }
+
+    environment{
+        EMAIL = 'src.sovannarith@gmail.com'
+        SCRIPT = '/usr/local/bin/setup-reactjs-jenkins-nginx-cert.sh'        
+    }
+
+    stages {
+        stage('Build Docker Image'){
+            steps{
+                sh """
+                    docker build -t jenkins-reactjs-pipeline .
+
+                """
+            }
+        }
+        stage('Deploy and Run Docker Container'){
+            steps {
+                sh """
+                    docker stop reactjs-cont || true
+                    docker rm reactjs-cont || true
+                    docker run -dp ${PORT}:80 --name reactjs-cont jenkins-reactjs-pipeline
+                """
+            }
+        }
+        stage('Setup Nginx + SSL'){
+            steps {
+                sh """
+                    sudo $SCRIPT $SUBDOMAIN $PORT $EMAIL
+                """
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "❌ Build failed. Please check logs and retry."
+        }
+        success {
+            echo "✅ Deployment successful at: https://${SUBDOMAIN}"
+        }
+    }
+}
